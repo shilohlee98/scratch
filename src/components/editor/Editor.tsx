@@ -109,6 +109,24 @@ import {
   FolderPlusIcon,
 } from "../icons";
 
+function toggleCodeBlockAtCursor(editor: TiptapEditor): boolean {
+  if (editor.isActive("codeBlock")) {
+    return editor.chain().focus().toggleCodeBlock().run();
+  }
+
+  const { selection } = editor.state;
+  if (selection.empty && selection.$from.parentOffset > 0) {
+    return editor
+      .chain()
+      .focus()
+      .splitBlock({ keepMarks: false })
+      .setCodeBlock()
+      .run();
+  }
+
+  return editor.chain().focus().setCodeBlock().run();
+}
+
 const ScratchCodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView);
@@ -117,22 +135,7 @@ const ScratchCodeBlock = CodeBlockLowlight.extend({
   addKeyboardShortcuts() {
     return {
       ...this.parent?.(),
-      "Mod-Alt-c": () => {
-        if (this.editor.isActive(this.name)) {
-          return this.editor.commands.toggleCodeBlock();
-        }
-
-        const { selection } = this.editor.state;
-        if (selection.empty && selection.$from.parentOffset > 0) {
-          return this.editor
-            .chain()
-            .splitBlock({ keepMarks: false })
-            .setCodeBlock()
-            .run();
-        }
-
-        return this.editor.commands.setCodeBlock();
-      },
+      "Mod-Alt-c": () => toggleCodeBlockAtCursor(this.editor),
     };
   },
 
@@ -407,7 +410,7 @@ function FormatBar({
         <InlineCodeIcon className="w-4.5 h-4.5 stroke-[1.5]" />
       </ToolbarButton>
       <ToolbarButton
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        onClick={() => toggleCodeBlockAtCursor(editor)}
         isActive={editor.isActive("codeBlock")}
         title={`Code Block (${mod}${isMac ? "" : "+"}${alt}${isMac ? "" : "+"}C)`}
       >
