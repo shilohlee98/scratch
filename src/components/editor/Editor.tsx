@@ -133,9 +133,50 @@ const ScratchCodeBlock = CodeBlockLowlight.extend({
   },
 
   addKeyboardShortcuts() {
+    const parentShortcuts = this.parent?.() ?? {};
+
     return {
-      ...this.parent?.(),
+      ...parentShortcuts,
       "Mod-Alt-c": () => toggleCodeBlockAtCursor(this.editor),
+      Enter: (props) => {
+        const { selection } = this.editor.state;
+        const { $from } = selection;
+
+        if (
+          selection.empty &&
+          !this.editor.isActive(this.name) &&
+          !this.editor.isActive("code")
+        ) {
+          const textBeforeCursor = $from.parent.textBetween(
+            0,
+            $from.parentOffset,
+          );
+          const match = textBeforeCursor.match(
+            /```([a-zA-Z0-9_+#.-]*)$/,
+          );
+
+          if (match) {
+            const triggerFrom = selection.from - match[0].length;
+            const command = this.editor
+              .chain()
+              .deleteRange({ from: triggerFrom, to: selection.from });
+
+            if ($from.parentOffset > match[0].length) {
+              command
+                .setTextSelection(triggerFrom)
+                .splitBlock({ keepMarks: false });
+            }
+
+            return command
+              .setCodeBlock(
+                match[1] ? { language: match[1].toLowerCase() } : undefined,
+              )
+              .run();
+          }
+        }
+
+        return parentShortcuts.Enter?.(props) ?? false;
+      },
     };
   },
 
