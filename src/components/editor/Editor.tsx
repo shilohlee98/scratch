@@ -109,6 +109,60 @@ import {
   FolderPlusIcon,
 } from "../icons";
 
+const ScratchCodeBlock = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockView);
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      "Mod-Alt-c": () => {
+        if (this.editor.isActive(this.name)) {
+          return this.editor.commands.toggleCodeBlock();
+        }
+
+        const { selection } = this.editor.state;
+        if (selection.empty && selection.$from.parentOffset > 0) {
+          return this.editor
+            .chain()
+            .splitBlock({ keepMarks: false })
+            .setCodeBlock()
+            .run();
+        }
+
+        return this.editor.commands.setCodeBlock();
+      },
+    };
+  },
+
+  addInputRules() {
+    return [
+      new InputRule({
+        // Convert after the first space following ``` or ```language.
+        // Unlike TipTap's default rule, this also works after text.
+        find: /```([a-zA-Z0-9_+#.-]*) $/,
+        handler: ({ state, range, match, chain }) => {
+          const command = chain().deleteRange(range);
+
+          if (state.doc.resolve(range.from).parentOffset > 0) {
+            command
+              .setTextSelection(range.from)
+              .splitBlock({ keepMarks: false });
+          }
+
+          command
+            .setCodeBlock(
+              match[1] ? { language: match[1].toLowerCase() } : undefined,
+            )
+            .run();
+        },
+      }),
+      ...(this.parent?.() ?? []),
+    ];
+  },
+});
+
 function formatDateTime(timestamp: number): string {
   const date = new Date(timestamp * 1000);
   return date.toLocaleDateString(undefined, {
@@ -1054,11 +1108,7 @@ export function Editor({
         },
         codeBlock: false,
       }),
-      CodeBlockLowlight.extend({
-        addNodeView() {
-          return ReactNodeViewRenderer(CodeBlockView);
-        },
-      }).configure({
+      ScratchCodeBlock.configure({
         lowlight,
         defaultLanguage: null,
       }),
